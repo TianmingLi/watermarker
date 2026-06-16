@@ -5,6 +5,13 @@
 
 # usage
 
+## 网页版
+[GitHub Pages](https://tianmingli.github.io/watermarker/)
+
+![](web_demo.png)
+
+## 本地python版本
+
 需要 PIL 库 `pip install Pillow`
 
 ```
