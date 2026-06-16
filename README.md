@@ -49,11 +49,11 @@ optional arguments:
 python .\tkgui.py
 ```
 
-![](/input/thinker_gui.png)
+![](/py_archive/input/thinker_gui.png)
 
 
 # 效果
 
 `python marker.py -f ./input/test.png -m 添加水印`
 
-![](/output/test.png?raw=true)
+![](/py_archive/output/test.png?raw=true)
