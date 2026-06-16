@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Watermarker</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font: 13px/1.5 system-ui, -apple-system, sans-serif;
+    background: #1e1e1e;
+    color: #ccc;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+  .sidebar {
+    width: 300px;
+    min-width: 300px;
+    background: #252526;
+    border-right: 1px solid #3c3c3c;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .sidebar-header {
+    padding: 12px 16px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    border-bottom: 1px solid #3c3c3c;
+  }
+  .control-group {
+    padding: 10px 16px;
+    border-bottom: 1px solid #333;
+  }
+  .control-group label {
+    display: block;
+    font-size: 11px;
+    color: #999;
+    margin-bottom: 4px;
+  }
+  .control-group input[type="text"],
+  .control-group input[type="number"],
+  .control-group select {
+    width: 100%;
+    padding: 5px 8px;
+    background: #3c3c3c;
+    border: 1px solid #555;
+    border-radius: 3px;
+    color: #ddd;
+    font-size: 13px;
+    outline: none;
+  }
+  .control-group input[type="text"]:focus,
+  .control-group input[type="number"]:focus,
+  .control-group select:focus {
+    border-color: #007acc;
+  }
+  .control-group select optgroup {
+    font-style: normal;
+    font-weight: 600;
+    color: #888;
+    background: #2d2d2d;
+  }
+  .control-group select option {
+    background: #2d2d2d;
+    color: #ddd;
+    padding: 4px;
+  }
+  .control-group input[type="color"] {
+    width: 36px;
+    height: 28px;
+    padding: 2px;
+    background: #3c3c3c;
+    border: 1px solid #555;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .row > * { flex: 1; }
+  .row > .fixed { flex: 0 0 auto; }
+  .range-val { font-size: 11px; color: #888; min-width: 36px; text-align: right; }
+  input[type="range"] {
+    width: 100%;
+    accent-color: #007acc;
+  }
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 3px;
+    font-size: 13px;
+    cursor: pointer;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  .btn-primary {
+    background: #0e639c;
+    color: #fff;
+  }
+  .btn-primary:hover { background: #1177bb; }
+  .btn-secondary {
+    background: #3c3c3c;
+    color: #ccc;
+  }
+  .btn-secondary:hover { background: #4a4a4a; }
+  .main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #1a1a1a;
+    position: relative;
+    overflow: auto;
+  }
+  .drop-zone {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #555;
+    font-size: 14px;
+  }
+  .drop-zone.drag-over { color: #007acc; background: rgba(0,122,204,0.05); }
+  .preview-container {
+    position: relative;
+    max-width: 100%;
+    max-height: 100%;
+  }
+  .preview-container img, .preview-container canvas {
+    max-width: 100%;
+    max-height: 100vh;
+    object-fit: contain;
+    display: block;
+  }
+  .status-bar {
+    padding: 6px 16px;
+    background: #007acc;
+    color: #fff;
+    font-size: 11px;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: none;
+  }
+  .status-bar.show { display: block; }
+  .hidden-file { display: none; }
+  #customFontInput {
+    margin-top: 6px;
+  }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="sidebar-header">水印设置</div>
+
+  <div class="control-group">
+    <label>水印文字</label>
+    <input type="text" id="markText" value="Watermark" placeholder="输入水印文字">
+  </div>
+
+  <div class="control-group">
+    <label>字体</label>
+    <select id="fontSelect">
+      <optgroup label="── 通用字体 ──">
+        <option value="Arial, sans-serif">Arial</option>
+        <option value="'Times New Roman', serif">Times New Roman</option>
+        <option value="'Courier New', monospace">Courier New</option>
+        <option value="Georgia, serif">Georgia</option>
+        <option value="Verdana, sans-serif">Verdana</option>
+        <option value="Tahoma, sans-serif">Tahoma</option>
+        <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+        <option value="Impact, sans-serif">Impact</option>
+      </optgroup>
+      <optgroup label="── macOS 中文字体 ──">
+        <option value="'PingFang SC', sans-serif">PingFang SC (苹方)</option>
+        <option value="'PingFang TC', sans-serif">PingFang TC (苹方-繁)</option>
+        <option value="'Hiragino Sans GB', sans-serif">Hiragino Sans GB (冬青黑体)</option>
+        <option value="'STSong', serif">STSong (华文宋体)</option>
+        <option value="'STHeiti', sans-serif">STHeiti (华文黑体)</option>
+      </optgroup>
+      <optgroup label="── Windows 中文字体 ──">
+        <option value="'Microsoft YaHei', sans-serif">Microsoft YaHei (微软雅黑)</option>
+        <option value="SimSun, serif">SimSun (宋体)</option>
+        <option value="SimHei, sans-serif">SimHei (黑体)</option>
+        <option value="KaiTi, serif">KaiTi (楷体)</option>
+        <option value="FangSong, serif">FangSong (仿宋)</option>
+      </optgroup>
+      <optgroup label="── Linux 中文字体 ──">
+        <option value="'Noto Sans SC', sans-serif">Noto Sans SC (思源黑体)</option>
+        <option value="'Noto Serif SC', serif">Noto Serif SC (思源宋体)</option>
+        <option value="'WenQuanYi Micro Hei', sans-serif">WenQuanYi Micro Hei (文泉驿微米黑)</option>
+        <option value="'WenQuanYi Zen Hei', sans-serif">WenQuanYi Zen Hei (文泉驿正黑)</option>
+      </optgroup>
+      <optgroup label="── 日/韩字体 ──">
+        <option value="'Hiragino Sans', sans-serif">Hiragino Sans</option>
+        <option value="'Hiragino Kaku Gothic ProN', sans-serif">Hiragino Kaku Gothic ProN</option>
+        <option value="'MS Gothic', sans-serif">MS Gothic</option>
+        <option value="'Malgun Gothic', sans-serif">Malgun Gothic (맑은 고딕)</option>
+      </optgroup>
+      <option value="__custom__">其他字体（手动输入）...</option>
+    </select>
+    <input type="text" id="customFontInput" placeholder="输入字体名称，如 'Fira Code'" style="display:none">
+  </div>
+
+  <div class="control-group">
+    <div class="row">
+      <label style="flex:1">字号</label>
+      <span class="range-val fixed" id="sizeVal">48</span>
+    </div>
+    <input type="range" id="size" min="8" max="200" value="48">
+  </div>
+
+  <div class="control-group">
+    <label>颜色</label>
+    <div class="row">
+      <input type="color" id="color" value="#8B8B1B" class="fixed">
+      <input type="text" id="colorHex" value="#8B8B1B" style="flex:1">
+    </div>
+  </div>
+
+  <div class="control-group">
+    <div class="row">
+      <label style="flex:1">透明度</label>
+      <span class="range-val fixed" id="opacityVal">0.15</span>
+    </div>
+    <input type="range" id="opacity" min="1" max="100" value="15">
+  </div>
+
+  <div class="control-group">
+    <div class="row">
+      <label style="flex:1">间距</label>
+      <span class="range-val fixed" id="spaceVal">75</span>
+    </div>
+    <input type="range" id="space" min="10" max="300" value="75">
+  </div>
+
+  <div class="control-group">
+    <div class="row">
+      <label style="flex:1">旋转角度</label>
+      <span class="range-val fixed" id="angleVal">30</span>
+    </div>
+    <input type="range" id="angle" min="-90" max="90" value="30">
+  </div>
+
+  <div class="control-group">
+    <label>输出质量 (JPEG)</label>
+    <div class="row">
+      <input type="range" id="quality" min="10" max="100" value="90">
+      <span class="range-val fixed" id="qualityVal">90</span>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label>输出格式</label>
+    <select id="outFormat">
+      <option value="image/png">PNG</option>
+      <option value="image/jpeg">JPEG</option>
+      <option value="image/webp">WebP</option>
+    </select>
+  </div>
+
+  <div style="padding: 10px 16px;">
+    <button class="btn btn-primary" id="applyBtn">应用水印</button>
+    <button class="btn btn-secondary" id="downloadBtn" disabled>下载图片</button>
+    <button class="btn btn-secondary" id="clearBtn">清除</button>
+    <input type="file" id="fileInput" class="hidden-file" accept="image/*">
+  </div>
+</div>
+
+<div class="main" id="mainArea">
+  <div class="drop-zone" id="dropZone">
+    拖放图片到此处，或点击侧边栏选择文件
+  </div>
+</div>
+
+<div class="status-bar" id="statusBar"></div>
+
+<script>
+(function() {
+  const $ = id => document.getElementById(id);
+
+  const markText    = $('markText');
+  const fontSelect  = $('fontSelect');
+  const customInput = $('customFontInput');
+  const sizeSlider  = $('size');
+  const colorPicker = $('color');
+  const colorHex    = $('colorHex');
+  const opacitySlider = $('opacity');
+  const spaceSlider = $('space');
+  const angleSlider = $('angle');
+  const qualitySlider = $('quality');
+  const outFormat   = $('outFormat');
+  const sizeVal     = $('sizeVal');
+  const opacityVal  = $('opacityVal');
+  const spaceVal    = $('spaceVal');
+  const angleVal    = $('angleVal');
+  const qualityVal  = $('qualityVal');
+  const applyBtn    = $('applyBtn');
+  const downloadBtn = $('downloadBtn');
+  const clearBtn    = $('clearBtn');
+  const fileInput   = $('fileInput');
+  const mainArea    = $('mainArea');
+  const dropZone    = $('dropZone');
+  const statusBar   = $('statusBar');
+
+  let originalImage = null;
+  let watermarkedBlob = null;
+
+  // ---- Font selection ----
+  function getFontFamily() {
+    if (fontSelect.value === '__custom__') {
+      return customInput.value.trim() || 'Arial, sans-serif';
+    }
+    return fontSelect.value;
+  }
+
+  fontSelect.addEventListener('change', function() {
+    if (this.value === '__custom__') {
+      customInput.style.display = '';
+      customInput.focus();
+    } else {
+      customInput.style.display = 'none';
+    }
+  });
+
+  // ---- Status ----
+  function status(msg, duration) {
+    statusBar.textContent = msg;
+    statusBar.classList.add('show');
+    if (duration) setTimeout(() => statusBar.classList.remove('show'), duration);
+  }
+
+  // ---- Sync sliders ----
+  function syncRange(slider, display, fmt) {
+    slider.addEventListener('input', () => { display.textContent = fmt(slider.value); });
+  }
+  syncRange(sizeSlider, sizeVal, v => v);
+  syncRange(opacitySlider, opacityVal, v => (v / 100).toFixed(2));
+  syncRange(spaceSlider, spaceVal, v => v);
+  syncRange(angleSlider, angleVal, v => v);
+  syncRange(qualitySlider, qualityVal, v => v);
+  colorPicker.addEventListener('input', () => { colorHex.value = colorPicker.value; });
+  colorHex.addEventListener('input', () => {
+    if (/^#[0-9a-fA-F]{6}$/.test(colorHex.value)) colorPicker.value = colorHex.value;
+  });
+
+  // ---- File handling ----
+  function loadImage(file) {
+    if (!file || !file.type.startsWith('image/')) {
+      status('请选择图片文件', 2000);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.onload = function() {
+        originalImage = img;
+        watermarkedBlob = null;
+        downloadBtn.disabled = true;
+        showPreview(img);
+        status(`已加载: ${file.name} (${img.naturalWidth}×${img.naturalHeight})`, 3000);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) loadImage(fileInput.files[0]);
+  });
+
+  // Drag & drop
+  mainArea.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  mainArea.addEventListener('dragleave', () => { dropZone.classList.remove('drag-over'); });
+  mainArea.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    if (e.dataTransfer.files.length) loadImage(e.dataTransfer.files[0]);
+  });
+  dropZone.addEventListener('click', () => fileInput.click());
+
+  // ---- Preview ----
+  function showPreview(img) {
+    mainArea.innerHTML = '';
+    const container = document.createElement('div');
+    container.className = 'preview-container';
+    const clone = img.cloneNode(true);
+    container.appendChild(clone);
+    mainArea.appendChild(container);
+  }
+
+  function showCanvasPreview(canvas) {
+    mainArea.innerHTML = '';
+    const container = document.createElement('div');
+    container.className = 'preview-container';
+    container.appendChild(canvas);
+    mainArea.appendChild(container);
+  }
+
+  // ---- Watermark algorithm (mirrors marker.py logic) ----
+  function renderTextToCanvas(text, font, color) {
+    const c = document.createElement('canvas');
+    const ctx = c.getContext('2d');
+    ctx.font = font;
+    const metrics = ctx.measureText(text);
+    const textWidth = metrics.width;
+    // actualBoundingBoxAscent + actualBoundingBoxDescent gives the total rendered height
+    const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+
+    c.width = textWidth;
+    c.height = textHeight;
+
+    ctx.font = font;
+    ctx.fillStyle = color;
+    ctx.textBaseline = 'top';
+    ctx.fillText(text, 0, 0);
+    return { canvas: c, width: textWidth, height: textHeight };
+  }
+
+  function applyWatermark() {
+    if (!originalImage) {
+      status('请先选择图片', 2000);
+      return;
+    }
+
+    status('正在处理...');
+    const text = markText.value || 'Watermark';
+    const fontFamily = getFontFamily();
+    const font = `${sizeSlider.value}px ${fontFamily}`;
+    const color = colorPicker.value;
+    const opacity = parseInt(opacitySlider.value) / 100;
+    const space = parseInt(spaceSlider.value);
+    const angle = parseInt(angleSlider.value);
+    const mime = outFormat.value;
+    const quality = parseInt(qualitySlider.value) / 100;
+
+    // Render single watermark text
+    const { canvas: markCanvas, width: markW, height: markH } = renderTextToCanvas(text, font, color);
+    const ow = originalImage.naturalWidth;
+    const oh = originalImage.naturalHeight;
+
+    // Diagonal length (same logic as marker.py)
+    const cSize = Math.ceil(Math.sqrt(ow * ow + oh * oh));
+
+    // Create the tiled watermark canvas
+    const tileCanvas = document.createElement('canvas');
+    tileCanvas.width = cSize;
+    tileCanvas.height = cSize;
+    const tctx = tileCanvas.getContext('2d');
+
+    let y = 0, idx = 0;
+    while (y < cSize) {
+      let x = -Math.floor((markW + space) * 0.5 * idx);
+      idx = (idx + 1) % 2;
+      while (x < cSize) {
+        tctx.drawImage(markCanvas, x, y);
+        x += markW + space;
+      }
+      y += markH + space;
+    }
+
+    // Rotate the tiled canvas
+    const rotCanvas = document.createElement('canvas');
+    rotCanvas.width = cSize;
+    rotCanvas.height = cSize;
+    const rctx = rotCanvas.getContext('2d');
+    rctx.save();
+    rctx.translate(cSize / 2, cSize / 2);
+    rctx.rotate(angle * Math.PI / 180);
+    rctx.drawImage(tileCanvas, -cSize / 2, -cSize / 2);
+    rctx.restore();
+
+    // Composite onto original image
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = ow;
+    outCanvas.height = oh;
+    const octx = outCanvas.getContext('2d');
+
+    // Draw original
+    octx.drawImage(originalImage, 0, 0);
+
+    // Draw watermark with opacity
+    octx.save();
+    octx.globalAlpha = opacity;
+    const offsetX = Math.floor((ow - cSize) / 2);
+    const offsetY = Math.floor((oh - cSize) / 2);
+    octx.drawImage(rotCanvas, offsetX, offsetY);
+    octx.restore();
+
+    // Generate blob for download
+    outCanvas.toBlob(blob => {
+      watermarkedBlob = blob;
+      downloadBtn.disabled = false;
+      showCanvasPreview(outCanvas);
+      status('水印已应用', 2000);
+    }, mime, quality);
+  }
+
+  function download() {
+    if (!watermarkedBlob) return;
+    const ext = outFormat.value === 'image/png' ? 'png' :
+                outFormat.value === 'image/webp' ? 'webp' : 'jpg';
+    const url = URL.createObjectURL(watermarkedBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `watermarked.${ext}`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function clearAll() {
+    originalImage = null;
+    watermarkedBlob = null;
+    downloadBtn.disabled = true;
+    mainArea.innerHTML = '';
+    mainArea.appendChild(dropZone);
+    fileInput.value = '';
+  }
+
+  applyBtn.addEventListener('click', applyWatermark);
+  downloadBtn.addEventListener('click', download);
+  clearBtn.addEventListener('click', clearAll);
+})();
+</script>
+</body>
+</html>
